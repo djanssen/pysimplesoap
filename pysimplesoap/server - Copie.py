@@ -189,7 +189,6 @@ class SoapDispatcher(object):
                 args = {'request': method}  # send raw request
             else:
                 args = {}  # no parameters
-
             soap_fault_code = 'Server'
             # execute function
             ret = function(**args)
@@ -243,8 +242,8 @@ class SoapDispatcher(object):
                                     namespaces_map=mapping,
                                     prefix=prefix)
 
-        response['xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance"
-        response['xmlns:xsd'] = "http://www.w3.org/2001/XMLSchema"
+        #response['xmlns:xsi'] = "http://www.w3.org/2001/XMLSchema-instance"
+        #response['xmlns:xsd'] = "http://www.w3.org/2001/XMLSchema"
 
         body = response.add_child("%s:Body" % soap_ns, ns=False)
 
@@ -253,7 +252,10 @@ class SoapDispatcher(object):
             body.marshall("%s:Fault" % soap_ns, fault, ns=False)
         else:
             # return normal value
-            res = body.add_child(self.response_element_name(name), ns=self.namespace)
+            if not prefix:
+                res = body.add_child(self.response_element_name(name), ns=self.namespace)
+            else:
+                res = body.add_child("%s:%s" % (prefix, self.response_element_name(name)), ns=False)
             if not prefix:
                 res['xmlns'] = self.namespace  # add target namespace
 
@@ -269,7 +271,10 @@ class SoapDispatcher(object):
                                      "%s vs %s" % (str(returns_types), str(ret)))
                 if not complex_type or not types_ok:
                     # backward compatibility for scalar and simple types
-                    res.marshall(list(returns_types.keys())[0], ret, )
+                    if not prefix:
+                        res.marshall(list(returns_types.keys())[0], ret, )
+                    else:
+                        res.marshall("%s:%s" % (prefix,list(returns_types.keys())[0]), ret, )
                 else:
                     # new style for complex classes
                     for k, v in ret.items():
@@ -450,23 +455,26 @@ class SOAPHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """User viewable help information and wsdl"""
         args = self.path[1:].split("?")
-        if self.path != "/" and args[0] not in self.server.dispatcher.methods.keys():
-            self.send_error(404, "Method not found: %s" % args[0])
+        if len(args) > 1 and args[1] == 'wsdl':
+            response = self.server.dispatcher.wsdl()
         else:
-            if self.path == "/":
-                # return wsdl if no method supplied
-                response = self.server.dispatcher.wsdl()
+            if self.path != "/" and args[0] not in self.server.dispatcher.methods.keys():
+                self.send_error(404, "Method not found: %s" % args[0])
             else:
-                # return supplied method help (?request or ?response messages)
-                req, res, doc = self.server.dispatcher.help(args[0])
-                if len(args) == 1 or args[1] == "request":
-                    response = req
+                if self.path == "/":
+                    # return wsdl if no method supplied
+                    response = self.server.dispatcher.wsdl()
                 else:
-                    response = res
-            self.send_response(200)
-            self.send_header("Content-type", "text/xml")
-            self.end_headers()
-            self.wfile.write(response)
+                    # return supplied method help (?request or ?response messages)
+                    req, res, doc = self.server.dispatcher.help(args[0])
+                    if len(args) == 1 or args[1] == "request":
+                        response = req
+                    else:
+                        response = res
+        self.send_response(200)
+        self.send_header("Content-type", "text/xml")
+        self.end_headers()
+        self.wfile.write(response)
 
     def do_POST(self):
         """SOAP POST gateway"""
@@ -486,7 +494,7 @@ class SOAPHandler(BaseHTTPRequestHandler):
             self.send_response(500)
         else:
             self.send_response(200)
-
+        # self.send_header("Content-type", "text/xml")
         self.send_header("Content-type", content_type)
         self.end_headers()
         self.wfile.write(response)
