@@ -476,7 +476,7 @@ class SOAPHandler(BaseHTTPRequestHandler):
             encoding = self.headers.getparam("charset")
         else:
             encoding = self.headers.get_param("charset")
-        request = request.decode(encoding)
+        content_type = self.headers.get('content-type')
         fault = {}
         # execute the method
         response = self.server.dispatcher.dispatch(request, fault=fault)
@@ -485,7 +485,8 @@ class SOAPHandler(BaseHTTPRequestHandler):
             self.send_response(500)
         else:
             self.send_response(200)
-        self.send_header("Content-type", "text/xml")
+
+        self.send_header("Content-type", content_type)
         self.end_headers()
         self.wfile.write(response)
 
