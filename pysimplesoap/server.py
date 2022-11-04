@@ -451,7 +451,15 @@ class SOAPHandler(BaseHTTPRequestHandler):
         """User viewable help information and wsdl"""
         args = self.path[1:].split("?")
         if self.path != "/" and args[0] not in self.server.dispatcher.methods.keys():
-            self.send_error(404, "Method not found: %s" % args[0])
+            if len(args) > 1 and args[1] == 'wsdl':
+                # wsdl arg: return wsdl even if method is not found
+                response = self.server.dispatcher.wsdl()
+                self.send_response(200)
+                self.send_header("Content-type", "text/xml")
+                self.end_headers()
+                self.wfile.write(response)
+            else:
+                self.send_error(404, "Method not found: %s" % args[0])
         else:
             if self.path == "/":
                 # return wsdl if no method supplied
