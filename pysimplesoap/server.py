@@ -477,6 +477,7 @@ class SOAPHandler(BaseHTTPRequestHandler):
         else:
             encoding = self.headers.get_param("charset")
         content_type = self.headers.get('content-type')
+        request = request.decode(encoding if encoding else 'UTF-8')
         fault = {}
         # execute the method
         response = self.server.dispatcher.dispatch(request, fault=fault)
