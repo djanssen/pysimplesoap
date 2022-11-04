@@ -253,9 +253,12 @@ class SoapDispatcher(object):
             body.marshall("%s:Fault" % soap_ns, fault, ns=False)
         else:
             # return normal value
-            res = body.add_child(self.response_element_name(name), ns=self.namespace)
             if not prefix:
+                res = body.add_child(self.response_element_name(name), ns=self.namespace)
                 res['xmlns'] = self.namespace  # add target namespace
+            else:
+                res = body.add_child("%s:%s" % (prefix, self.response_element_name(name)), ns=False)
+
 
             # serialize returned values (response) if type definition available
             if returns_types:
@@ -269,7 +272,10 @@ class SoapDispatcher(object):
                                      "%s vs %s" % (str(returns_types), str(ret)))
                 if not complex_type or not types_ok:
                     # backward compatibility for scalar and simple types
-                    res.marshall(list(returns_types.keys())[0], ret, )
+                    if not prefix:
+                        res.marshall(list(returns_types.keys())[0], ret, )
+                    else:
+                        res.marshall("%s:%s" % (prefix,list(returns_types.keys())[0]), ret, )
                 else:
                     # new style for complex classes
                     for k, v in ret.items():
